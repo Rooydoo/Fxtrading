@@ -484,3 +484,225 @@ class TelegramCommandHandler:
                     callback(command, args)
                 except Exception as e:
                     logger.error(f"Command handler error: {e}")
+
+
+class BacktestReporter:
+    """バックテスト結果をTelegramに送信"""
+
+    def __init__(self, notifier: TelegramNotifier):
+        """
+        Args:
+            notifier: TelegramNotifierインスタンス
+        """
+        self.notifier = notifier
+
+    def send_backtest_result(
+        self,
+        symbol: str,
+        period_days: int,
+        initial_balance: float,
+        final_balance: float,
+        total_return: float,
+        total_trades: int,
+        win_rate: float,
+        profit_factor: float,
+        sharpe_ratio: float,
+        max_drawdown: float,
+        avg_win: float,
+        avg_loss: float,
+        best_trade: Optional[float] = None,
+        worst_trade: Optional[float] = None,
+    ) -> bool:
+        """
+        バックテスト結果を送信
+
+        Args:
+            symbol: 通貨ペア
+            period_days: テスト期間（日数）
+            initial_balance: 初期資金
+            final_balance: 最終残高
+            total_return: トータルリターン
+            total_trades: 取引数
+            win_rate: 勝率
+            profit_factor: プロフィットファクター
+            sharpe_ratio: シャープレシオ
+            max_drawdown: 最大ドローダウン
+            avg_win: 平均利益
+            avg_loss: 平均損失
+            best_trade: 最大利益トレード
+            worst_trade: 最大損失トレード
+        """
+        return_emoji = "📈" if total_return >= 0 else "📉"
+        pf_emoji = "✅" if profit_factor >= 1.5 else "⚠️" if profit_factor >= 1.0 else "❌"
+        sr_emoji = "✅" if sharpe_ratio >= 1.5 else "⚠️" if sharpe_ratio >= 0.5 else "❌"
+
+        message = f"""
+📊 <b>バックテスト結果</b>
+
+<b>通貨ペア:</b> {symbol}
+<b>期間:</b> {period_days}日間
+
+<b>━━━ パフォーマンス ━━━</b>
+<b>初期資金:</b> ¥{initial_balance:,.0f}
+<b>最終残高:</b> ¥{final_balance:,.0f}
+{return_emoji} <b>リターン:</b> {total_return:+.2%}
+
+<b>━━━ 取引統計 ━━━</b>
+<b>取引回数:</b> {total_trades}
+<b>勝率:</b> {win_rate:.1%}
+{pf_emoji} <b>PF:</b> {profit_factor:.2f}
+{sr_emoji} <b>シャープレシオ:</b> {sharpe_ratio:.2f}
+<b>最大DD:</b> {max_drawdown:.2%}
+
+<b>━━━ 平均損益 ━━━</b>
+<b>平均利益:</b> ¥{avg_win:,.0f}
+<b>平均損失:</b> ¥{avg_loss:,.0f}
+"""
+
+        if best_trade is not None and worst_trade is not None:
+            message += f"""
+<b>最大利益:</b> ¥{best_trade:+,.0f}
+<b>最大損失:</b> ¥{worst_trade:+,.0f}
+"""
+
+        message += f"\n⏰ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+
+        return self.notifier.send_message(message.strip())
+
+    def send_backtest_summary(
+        self,
+        results: Dict[str, Any],
+        symbol: str = "EUR_USD",
+        period_days: int = 90,
+    ) -> bool:
+        """
+        バックテスト結果辞書から送信
+
+        Args:
+            results: Backtester.run()の戻り値
+            symbol: 通貨ペア
+            period_days: テスト期間
+
+        Returns:
+            送信成功フラグ
+        """
+        trades = results.get("trades", [])
+        pnls = [t["pnl"] for t in trades] if trades else []
+        best_trade = max(pnls) if pnls else 0
+        worst_trade = min(pnls) if pnls else 0
+
+        return self.send_backtest_result(
+            symbol=symbol,
+            period_days=period_days,
+            initial_balance=results.get("final_balance", 0) / (1 + results.get("total_return", 0)) if results.get("total_return", 0) != -1 else 1000000,
+            final_balance=results.get("final_balance", 0),
+            total_return=results.get("total_return", 0),
+            total_trades=results.get("total_trades", 0),
+            win_rate=results.get("win_rate", 0),
+            profit_factor=results.get("profit_factor", 0),
+            sharpe_ratio=results.get("sharpe_ratio", 0),
+            max_drawdown=results.get("max_drawdown", 0),
+            avg_win=results.get("avg_win", 0),
+            avg_loss=results.get("avg_loss", 0),
+            best_trade=best_trade,
+            worst_trade=worst_trade,
+        )
+
+
+class WalkForwardReporter:
+    """ウォークフォワード検証結果をTelegramに送信"""
+
+    def __init__(self, notifier: TelegramNotifier):
+        """
+        Args:
+            notifier: TelegramNotifierインスタンス
+        """
+        self.notifier = notifier
+
+    def send_walk_forward_result(
+        self,
+        symbol: str,
+        n_splits: int,
+        mean_accuracy: float,
+        std_accuracy: float,
+        direction_accuracy: float,
+        fold_details: List[Dict[str, Any]],
+    ) -> bool:
+        """
+        ウォークフォワード検証結果を送信
+
+        Args:
+            symbol: 通貨ペア
+            n_splits: 分割数
+            mean_accuracy: 平均精度
+            std_accuracy: 標準偏差
+            direction_accuracy: 方向精度
+            fold_details: 各フォールドの詳細
+        """
+        # 評価
+        acc_emoji = "✅" if mean_accuracy >= 0.55 else "⚠️" if mean_accuracy >= 0.50 else "❌"
+        stability_emoji = "✅" if std_accuracy < 0.05 else "⚠️" if std_accuracy < 0.10 else "❌"
+
+        message = f"""
+🔬 <b>ウォークフォワード検証結果</b>
+
+<b>通貨ペア:</b> {symbol}
+<b>分割数:</b> {n_splits}
+
+<b>━━━ 総合評価 ━━━</b>
+{acc_emoji} <b>平均精度:</b> {mean_accuracy:.2%}
+{stability_emoji} <b>標準偏差:</b> ±{std_accuracy:.2%}
+<b>方向精度:</b> {direction_accuracy:.2%}
+
+<b>━━━ フォールド別 ━━━</b>
+"""
+
+        for fold in fold_details:
+            fold_num = fold.get("fold", 0)
+            fold_acc = fold.get("accuracy", 0)
+            train_size = fold.get("train_size", 0)
+            test_size = fold.get("test_size", 0)
+            fold_emoji = "✓" if fold_acc >= 0.52 else "✗"
+
+            message += f"{fold_emoji} Fold {fold_num}: {fold_acc:.1%} (訓練:{train_size:,}, テスト:{test_size:,})\n"
+
+        # 判定
+        if mean_accuracy >= 0.55 and std_accuracy < 0.05:
+            verdict = "✅ 本番運用可能"
+        elif mean_accuracy >= 0.52:
+            verdict = "⚠️ 追加検証推奨"
+        else:
+            verdict = "❌ モデル再検討必要"
+
+        message += f"""
+<b>━━━ 判定 ━━━</b>
+{verdict}
+
+⏰ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+"""
+
+        return self.notifier.send_message(message.strip())
+
+    def send_walk_forward_summary(
+        self,
+        results: Dict[str, Any],
+        symbol: str = "EUR_USD",
+    ) -> bool:
+        """
+        ウォークフォワード結果辞書から送信
+
+        Args:
+            results: ModelTrainer.walk_forward_validation()の戻り値
+            symbol: 通貨ペア
+
+        Returns:
+            送信成功フラグ
+        """
+        return self.send_walk_forward_result(
+            symbol=symbol,
+            n_splits=len(results.get("fold_details", [])),
+            mean_accuracy=results.get("mean_accuracy", 0),
+            std_accuracy=results.get("std_accuracy", 0),
+            direction_accuracy=results.get("direction_accuracy", 0),
+            fold_details=results.get("fold_details", []),
+        )

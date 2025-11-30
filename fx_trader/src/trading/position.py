@@ -380,6 +380,73 @@ class PositionManager:
                 total += position.calculate_pnl(current_price)
         return total
 
+    def add_position_from_dict(self, data: Dict[str, Any]) -> Optional[Position]:
+        """
+        辞書からポジションを復元して追加
+
+        Args:
+            data: ポジションデータ辞書
+
+        Returns:
+            復元されたPosition (失敗時はNone)
+        """
+        try:
+            # position_id の取得（キー名の違いに対応）
+            position_id = data.get("id") or data.get("position_id")
+            if not position_id:
+                logger.error("Position data missing id/position_id")
+                return None
+
+            # すでに存在する場合はスキップ
+            if position_id in self.positions:
+                logger.warning(f"Position already exists: {position_id}")
+                return self.positions[position_id]
+
+            position = Position(
+                id=position_id,
+                symbol=data["symbol"],
+                side=Side(data["side"]) if isinstance(data["side"], str) else data["side"],
+                size=float(data["size"]),
+                entry_price=float(data["entry_price"]),
+                entry_time=datetime.fromisoformat(data["entry_time"]) if isinstance(data["entry_time"], str) else data["entry_time"],
+                stop_loss=float(data["stop_loss"]) if data.get("stop_loss") else None,
+                take_profit=float(data["take_profit"]) if data.get("take_profit") else None,
+                status=PositionStatus(data.get("status", "open")),
+                confidence=float(data.get("confidence", 0.0)),
+                max_loss_amount=float(data.get("max_loss_amount", 0.0)),
+                metadata=data.get("metadata", {}),
+            )
+
+            self.positions[position_id] = position
+            logger.info(f"Position restored: {position_id}")
+
+            return position
+
+        except Exception as e:
+            logger.error(f"Failed to restore position: {e}")
+            return None
+
+    def update_stop_loss(self, position_id: str, new_stop_loss: float) -> bool:
+        """
+        ストップロスを更新
+
+        Args:
+            position_id: ポジションID
+            new_stop_loss: 新しいストップロス価格
+
+        Returns:
+            成功フラグ
+        """
+        if position_id not in self.positions:
+            return False
+
+        position = self.positions[position_id]
+        old_sl = position.stop_loss
+        position.stop_loss = new_stop_loss
+
+        logger.debug(f"Stop loss updated: {position_id}, {old_sl} -> {new_stop_loss}")
+        return True
+
 
 class TradeHistory:
     """取引履歴管理 (SQLite)"""

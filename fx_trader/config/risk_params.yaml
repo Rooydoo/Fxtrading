@@ -133,3 +133,70 @@ emergency:
   # 手動介入
   manual_override:
     telegram_command: true  # Telegramから緊急決済可能
+
+# トレーリングストップ設定
+trailing_stop:
+  enabled: true
+  method: atr_based  # fixed_pips / atr_based / percent / breakeven / step
+
+  # 固定pips設定
+  trail_pips: 30.0
+
+  # ATRベース設定
+  atr_multiplier: 1.5
+
+  # パーセント設定
+  trail_percent: 0.005  # 0.5%
+
+  # ブレークイーブン設定
+  breakeven_trigger_pips: 20.0  # この利益でブレークイーブンに移動
+  breakeven_offset_pips: 5.0    # ブレークイーブン + オフセット
+
+  # ステップ式設定
+  step_pips: 20.0  # このpips動くごとにSL更新
+
+  # 共通設定
+  activation_pips: 10.0  # この利益からトレーリング開始
+  min_trail_distance: 15.0  # 最小トレール距離 (pips)
+
+# 経済指標カレンダー設定
+economic_calendar:
+  enabled: true
+  calendar_file: data/economic_calendar.json
+
+  # 重要度別の回避時間（分）
+  blackout_minutes:
+    high: 30
+    medium: 15
+    low: 0
+
+  # 特に重要なイベント（追加回避時間）
+  high_impact_events:
+    - name: "Non-Farm Payrolls"
+      blackout: 60
+    - name: "FOMC"
+      blackout: 60
+    - name: "Interest Rate Decision"
+      blackout: 45
+    - name: "GDP"
+      blackout: 30
+    - name: "CPI"
+      blackout: 30
+
+# 部分利確設定
+partial_close:
+  enabled: true
+  min_remaining_size: 1000  # 最小残りサイズ（通貨単位）
+
+  # 利確レベル（順番に評価）
+  levels:
+    - trigger_pips: 30        # 30pips利益で発動
+      close_percent: 0.5      # 50%決済
+      move_sl_to_entry: true  # SLをエントリー価格に移動
+      description: "30pips利益で50%決済、SLをBE移動"
+
+    - trigger_pips: 50        # 50pips利益で発動
+      close_percent: 0.5      # 残りの50%（全体の25%）決済
+      move_sl_to_entry: false
+      description: "50pips利益でさらに半分決済"
+

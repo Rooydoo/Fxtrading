@@ -284,6 +284,8 @@ def main():
     parser.add_argument("--days", type=int, default=90, help="バックテスト日数")
     parser.add_argument("--initial-balance", type=float, default=1000000, help="初期資金")
     parser.add_argument("--model-path", help="モデルファイルパス")
+    parser.add_argument("--notify", action="store_true", help="結果をTelegramに送信")
+    parser.add_argument("--output", help="結果をJSONファイルに保存")
     args = parser.parse_args()
 
     logger.info(f"Starting backtest for {args.symbol}")
@@ -291,6 +293,47 @@ def main():
 
     # ここでは実際のデータ取得とモデルロードは省略
     # 実際の使用時はGMOForexClientでデータを取得し、モデルをロードする
+
+    # バックテスト実行例（データがある場合）
+    # backtester = Backtester(initial_balance=args.initial_balance)
+    # results = backtester.run(df, signals, atr, symbol=args.symbol)
+
+    # Telegram通知
+    if args.notify:
+        try:
+            from src.notification.telegram import TelegramNotifier, BacktestReporter
+
+            notifier = TelegramNotifier()
+            reporter = BacktestReporter(notifier)
+
+            # サンプル結果（実際はbacktester.run()の戻り値を使用）
+            sample_results = {
+                "total_trades": 0,
+                "win_rate": 0,
+                "total_return": 0,
+                "sharpe_ratio": 0,
+                "max_drawdown": 0,
+                "profit_factor": 0,
+                "avg_win": 0,
+                "avg_loss": 0,
+                "final_balance": args.initial_balance,
+                "trades": [],
+            }
+
+            if reporter.send_backtest_summary(sample_results, args.symbol, args.days):
+                logger.info("Backtest results sent to Telegram")
+            else:
+                logger.warning("Failed to send backtest results to Telegram")
+
+        except ImportError as e:
+            logger.warning(f"Telegram notification not available: {e}")
+
+    # 結果をJSONに保存
+    if args.output:
+        import json
+        # with open(args.output, "w") as f:
+        #     json.dump(results, f, indent=2, default=str)
+        logger.info(f"Results would be saved to {args.output}")
 
     logger.info("Backtest completed")
     logger.info("Note: This is a template. Implement data fetching and model loading for actual use.")
