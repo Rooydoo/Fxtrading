@@ -183,3 +183,20 @@ economic_calendar:
     - name: "CPI"
       blackout: 30
 
+# 部分利確設定
+partial_close:
+  enabled: true
+  min_remaining_size: 1000  # 最小残りサイズ（通貨単位）
+
+  # 利確レベル（順番に評価）
+  levels:
+    - trigger_pips: 30        # 30pips利益で発動
+      close_percent: 0.5      # 50%決済
+      move_sl_to_entry: true  # SLをエントリー価格に移動
+      description: "30pips利益で50%決済、SLをBE移動"
+
+    - trigger_pips: 50        # 50pips利益で発動
+      close_percent: 0.5      # 残りの50%（全体の25%）決済
+      move_sl_to_entry: false
+      description: "50pips利益でさらに半分決済"
+
