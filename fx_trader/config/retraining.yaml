@@ -1,0 +1,125 @@
+# FX Trading System - Retraining Configuration
+# 自動再学習トリガー設定
+
+# 再学習スケジュール
+schedule:
+  # 定期チェック
+  check_frequency: weekly  # daily / weekly
+  check_day: Sunday        # 週次の場合
+  check_time: "23:00"      # JST
+
+# 再学習トリガー条件
+triggers:
+  # 勝率低下
+  win_rate:
+    enabled: true
+    period_days: 14        # 直近2週間
+    threshold: 0.45        # 45%未満で発火
+    min_trades: 10         # 最小取引数
+
+  # シャープレシオ低下
+  sharpe_ratio:
+    enabled: true
+    period_days: 14
+    threshold: 0.3         # 0.3未満で発火
+
+  # 予測精度乖離
+  prediction_accuracy:
+    enabled: true
+    threshold: 0.15        # 15%以上の乖離
+    metric: mae            # mae / rmse / direction_accuracy
+
+  # 特徴量分布シフト
+  feature_drift:
+    enabled: true
+    method: psi            # psi (Population Stability Index) / ks_test
+    threshold: 0.25        # PSI > 0.25で発火
+    features_to_monitor:
+      - returns
+      - volatility
+      - rsi_14
+      - atr_14
+
+  # 連続損失
+  consecutive_loss:
+    enabled: true
+    threshold: 5           # 5連敗
+
+  # 累積損失
+  cumulative_loss:
+    enabled: true
+    period_days: 7
+    threshold: -0.03       # -3%
+
+# 学習設定
+training:
+  # データ期間
+  lookback_months: 12      # 学習に使用する過去データ期間
+  min_samples: 1000        # 最小サンプル数
+
+  # ウォークフォワード検証
+  walk_forward:
+    enabled: true
+    n_splits: 4
+    test_size: 0.2
+
+  # ハイパーパラメータチューニング
+  hyperparameter_tuning:
+    enabled: true
+    method: optuna         # optuna / grid_search / random_search
+    n_trials: 50
+    timeout_minutes: 30
+
+# モデル評価
+evaluation:
+  # 切り替え条件
+  model_switch:
+    min_improvement: 0.05  # 5%以上の改善で切り替え
+    metrics:
+      - sharpe_ratio
+      - total_return
+      - max_drawdown
+
+  # バックテスト設定
+  backtest:
+    test_period_days: 30
+    include_costs: true
+    spread_pips: 1.5
+    slippage_pips: 0.5
+
+# 再学習フロー
+workflow:
+  # ステップ
+  steps:
+    - collect_data
+    - feature_engineering
+    - train_candidate
+    - walk_forward_validation
+    - compare_models
+    - decide_switch
+
+  # 通知
+  notifications:
+    trigger_detected: true     # トリガー検知時
+    training_started: true     # 学習開始時
+    training_completed: true   # 学習完了時
+    model_switched: true       # モデル切り替え時
+    no_improvement: true       # 改善なし時
+
+# ロールバック設定
+rollback:
+  enabled: true
+  keep_previous_models: 3      # 保持する過去モデル数
+
+  # 自動ロールバック条件
+  auto_rollback:
+    enabled: true
+    period_hours: 48           # 切り替え後48時間
+    loss_threshold: -0.02      # -2%でロールバック
+
+# ログ設定
+logging:
+  save_metrics: true
+  save_feature_importance: true
+  save_training_history: true
+  log_dir: logs/retraining/

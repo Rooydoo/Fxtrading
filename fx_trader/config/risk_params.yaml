@@ -1,0 +1,135 @@
+# FX Trading System - Risk Management Parameters
+# リスク管理パラメータ設定
+
+# ポジションリスク設定
+position_risk:
+  # ロング (買い) 設定
+  long:
+    risk_per_trade: 0.01      # 1トレードあたりリスク (1%)
+    risk_per_trade_min: 0.005 # 最小 (0.5%)
+    risk_per_trade_max: 0.01  # 最大 (1.0%)
+
+    stop_loss:
+      method: atr  # atr / fixed_pips / percent
+      atr_multiplier: 1.5
+      min_pips: 20
+      max_pips: 40
+
+    take_profit:
+      method: atr  # atr / fixed_pips / risk_reward
+      atr_multiplier: 2.0
+      min_pips: 30
+      max_pips: 60
+      risk_reward_ratio: 1.5
+
+  # ショート (売り) 設定
+  short:
+    risk_per_trade: 0.01
+    risk_per_trade_min: 0.005
+    risk_per_trade_max: 0.01
+
+    stop_loss:
+      method: atr
+      atr_multiplier: 1.5
+      min_pips: 20
+      max_pips: 40
+
+    take_profit:
+      method: atr
+      atr_multiplier: 2.5  # ショートはTP少し広め
+      min_pips: 40
+      max_pips: 75
+      risk_reward_ratio: 1.8
+
+# ポジション管理
+position_management:
+  max_positions: 3          # 最大同時ポジション数
+  max_positions_per_pair: 1 # 通貨ペアあたり最大ポジション
+  max_correlated_positions: 2  # 相関ペア間の最大ポジション
+
+# 資金管理ルール
+capital_management:
+  # デイリー最大損失
+  daily_loss_limit:
+    enabled: true
+    percent: 0.02  # 2%
+    action: stop_trading  # stop_trading / reduce_size / notify_only
+
+  # 週次最大ドローダウン
+  weekly_drawdown_limit:
+    enabled: true
+    percent: 0.05  # 5%
+    action: system_stop  # システム停止
+
+  # 月次最大ドローダウン
+  monthly_drawdown_limit:
+    enabled: true
+    percent: 0.08  # 8%
+    action: system_stop
+
+  # 連敗検知
+  consecutive_loss:
+    enabled: true
+    threshold: 5  # 5連敗
+    action: pause  # 一時停止、要確認
+
+# 取引条件
+trading_conditions:
+  # スプレッド異常検知
+  spread_check:
+    enabled: true
+    max_spread_multiplier: 2.0  # 通常の2倍以上で取引見送り
+    normal_spread:
+      EUR_USD: 1.5  # pips
+      USD_JPY: 1.5
+
+  # ボラティリティフィルター
+  volatility_filter:
+    enabled: true
+    min_atr_percent: 0.001   # 最小ATR (低ボラティリティ回避)
+    max_atr_percent: 0.05    # 最大ATR (高ボラティリティ回避)
+
+  # 時間帯フィルター (任意)
+  time_filter:
+    enabled: false
+    avoid_hours: [22, 23, 0, 1]  # UTC
+
+  # 流動性の低い時間帯
+  low_liquidity_filter:
+    enabled: true
+    reduce_size_percent: 0.5  # ポジションサイズ50%縮小
+
+# ポジションサイジング
+position_sizing:
+  method: volatility_adjusted  # fixed / volatility_adjusted / kelly
+
+  # 固定サイズ
+  fixed:
+    lot_size: 0.01  # 1万通貨単位
+
+  # ボラティリティ調整
+  volatility_adjusted:
+    target_volatility: 0.01  # 目標日次ボラティリティ 1%
+    atr_period: 14
+
+  # ケリー基準 (高度)
+  kelly:
+    enabled: false
+    fraction: 0.25  # ケリー係数の25%を使用 (保守的)
+
+# 緊急時対応
+emergency:
+  # API接続断
+  api_disconnect:
+    max_retry: 5
+    action: close_all_positions  # 全ポジションクローズ
+
+  # 急激な価格変動
+  flash_crash:
+    enabled: true
+    threshold_percent: 0.02  # 2%の急変動
+    action: halt_trading
+
+  # 手動介入
+  manual_override:
+    telegram_command: true  # Telegramから緊急決済可能

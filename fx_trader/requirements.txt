@@ -1,0 +1,41 @@
+# FX Machine Learning Trading System
+# Python 3.9+
+
+# Data handling
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Machine Learning
+lightgbm>=4.0.0
+scikit-learn>=1.3.0
+optuna>=3.3.0
+
+# API & HTTP
+requests>=2.31.0
+urllib3>=2.0.0
+
+# Configuration
+pyyaml>=6.0
+
+# Statistics
+scipy>=1.11.0
+
+# Database
+# SQLite is built-in
+
+# Async (optional)
+# aiohttp>=3.8.0
+# websockets>=11.0
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+
+# Linting (dev)
+# black>=23.0.0
+# flake8>=6.1.0
+# mypy>=1.5.0
+
+# Jupyter (optional, for development)
+# jupyter>=1.0.0
+# matplotlib>=3.7.0
