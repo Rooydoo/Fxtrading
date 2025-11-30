@@ -38,7 +38,9 @@ from src.trading.executor import (
 )
 from src.notification.telegram import TelegramNotifier
 from src.notification.reporter import PerformanceReporter, ReportScheduler
+from src.notification.bot_commands import TradingBotCommands
 from src.monitoring.performance_tracker import PerformanceTracker
+from src.trading.paper_simulator import PaperTradingSimulator
 
 
 class FXTradingSystem:
@@ -101,6 +103,15 @@ class FXTradingSystem:
         self.risk_manager = RiskManager("config/risk_params.yaml")
         self.trade_history = TradeHistory("data/trades.db")
 
+        # ペーパートレードシミュレーター
+        self.paper_simulator: Optional[PaperTradingSimulator] = None
+        if self.mode_manager.is_paper():
+            initial_balance = self.mode_manager.get_config("paper_trading.initial_balance", 1000000)
+            self.paper_simulator = PaperTradingSimulator(
+                initial_balance=initial_balance,
+                data_dir="data/paper_trading",
+            )
+
         # 注文執行
         if self.mode_manager.is_live():
             executor = LiveOrderExecutor(self.client)
@@ -119,6 +130,13 @@ class FXTradingSystem:
         self.notifier = TelegramNotifier(
             bot_token=credentials["telegram_token"],
             chat_id=credentials["telegram_chat_id"],
+        )
+
+        # Telegramボットコマンド
+        self.bot_commands = TradingBotCommands(
+            bot_token=credentials["telegram_token"],
+            chat_id=credentials["telegram_chat_id"],
+            trading_system=self,
         )
 
         # レポーター
@@ -300,11 +318,18 @@ class FXTradingSystem:
 
         self.system_state.set_running()
 
+        # Telegramボットコマンド開始
+        self.bot_commands.start_polling()
+
         # Telegram通知
+        mode_str = self.mode_manager.mode.value.upper()
+        balance = self._get_balance()
         self.notifier.send_message(
-            f"FX Trading System 起動\n"
-            f"モード: {self.mode_manager.mode.value.upper()}\n"
-            f"時刻: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            f"🚀 FX Trading System 起動\n"
+            f"モード: {mode_str}\n"
+            f"残高: ¥{balance:,.0f}\n"
+            f"時刻: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+            f"/help でコマンド一覧を表示"
         )
 
         # コールバック登録
@@ -320,10 +345,16 @@ class FXTradingSystem:
 
         self.system_state.request_shutdown()
         self.scheduler.stop()
+        self.bot_commands.stop_polling()
+
+        # ペーパーシミュレーター状態保存
+        if self.paper_simulator:
+            self.paper_simulator.save_state()
+            self.paper_simulator.record_daily()
 
         # 通知
         self.notifier.send_message(
-            f"FX Trading System 停止\n"
+            f"🛑 FX Trading System 停止\n"
             f"時刻: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
         )
 
