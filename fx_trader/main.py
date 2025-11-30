@@ -41,6 +41,7 @@ from src.trading.executor import (
 )
 from src.trading.trailing_stop import TrailingStopManager, TrailingStopConfig, TrailingMethod
 from src.trading.position_recovery import PositionRecoveryManager, PositionSynchronizer, RecoveryHandler
+from src.trading.partial_close import PartialCloseManager, load_partial_close_config
 from src.notification.telegram import TelegramNotifier
 from src.notification.reporter import PerformanceReporter, ReportScheduler
 from src.notification.bot_commands import TradingBotCommands
@@ -134,6 +135,10 @@ class FXTradingSystem:
         # トレーリングストップ
         trailing_config = self._load_trailing_config()
         self.trailing_stop_manager = TrailingStopManager(trailing_config)
+
+        # 部分利確
+        partial_close_config = load_partial_close_config("config/risk_params.yaml")
+        self.partial_close_manager = PartialCloseManager(partial_close_config)
 
         # ポジション復旧マネージャー
         self.recovery_manager = PositionRecoveryManager(
@@ -392,6 +397,15 @@ class FXTradingSystem:
                     stop_loss=position.stop_loss,
                 )
 
+                # 部分利確に登録
+                self.partial_close_manager.register_position(
+                    position_id=position.id,
+                    symbol=symbol,
+                    side="long" if side == Side.LONG else "short",
+                    entry_price=position.entry_price,
+                    size=position.size,
+                )
+
                 # 通知
                 max_loss, max_loss_pct = self.risk_manager.calculate_max_loss(
                     balance, position.size, position.entry_price, position.stop_loss, symbol
@@ -438,12 +452,13 @@ class FXTradingSystem:
                 except Exception:
                     prices[pos.symbol] = pos.entry_price
 
-            # トレーリングストップ更新
+            # トレーリングストップ更新 & 部分利確チェック
             for pos in positions:
                 current_price = prices.get(pos.symbol)
                 atr = atrs.get(pos.symbol)
 
                 if current_price:
+                    # トレーリングストップ更新
                     updated, new_sl = self.trailing_stop_manager.update(
                         position_id=pos.id,
                         current_price=current_price,
@@ -455,6 +470,36 @@ class FXTradingSystem:
                         self.position_manager.update_stop_loss(pos.id, new_sl)
                         logger.info(f"Trailing stop updated: {pos.id}, new SL={new_sl:.5f}")
 
+                    # 部分利確チェック
+                    partial_closes = self.partial_close_manager.check_and_close(
+                        position_id=pos.id,
+                        current_price=current_price,
+                    )
+
+                    for pc in partial_closes:
+                        # 部分決済を実行（実際の注文はexecutorで行う）
+                        close_size = pc["size"]
+                        logger.info(
+                            f"Partial close triggered: {pos.id}, "
+                            f"size={close_size}, trigger={pc['trigger_pips']}pips"
+                        )
+
+                        # 部分決済の記録
+                        # 実際のPnLは決済後に計算
+                        estimated_pnl = 0  # TODO: 実際の決済処理と連携
+                        self.partial_close_manager.record_partial_close(
+                            position_id=pos.id,
+                            level_index=pc["level_index"],
+                            closed_size=close_size,
+                            close_price=current_price,
+                            pnl=estimated_pnl,
+                        )
+
+                        # SLをエントリー価格に移動（設定されている場合）
+                        if pc.get("move_sl_to_entry"):
+                            self.position_manager.update_stop_loss(pos.id, pos.entry_price)
+                            logger.info(f"SL moved to entry: {pos.id}, SL={pos.entry_price:.5f}")
+
             # SL/TPチェック
             closed = self.trade_executor.check_and_close_positions(prices)
 
@@ -464,6 +509,9 @@ class FXTradingSystem:
 
                 # トレーリングストップから登録解除
                 self.trailing_stop_manager.unregister_position(pos_id)
+
+                # 部分利確から登録解除
+                self.partial_close_manager.unregister_position(pos_id)
 
                 # 通知
                 logger.info(f"Position closed: {pos_id}, PnL: {pnl:.2f}")
