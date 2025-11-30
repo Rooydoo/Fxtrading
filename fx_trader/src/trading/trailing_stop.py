@@ -340,3 +340,41 @@ class TrailingStopManager:
                 last_update=datetime.fromisoformat(state_data["last_update"]),
             )
         logger.info(f"Loaded {len(self.states)} trailing stop states")
+
+
+def load_trailing_stop_config(config_path: str = "config/risk_params.yaml") -> TrailingStopConfig:
+    """設定ファイルからトレーリングストップ設定を読み込み"""
+    try:
+        import yaml
+        with open(config_path, "r") as f:
+            config = yaml.safe_load(f)
+
+        ts_config = config.get("trailing_stop", {})
+
+        if not ts_config.get("enabled", True):
+            return TrailingStopConfig(enabled=False)
+
+        # メソッドの変換
+        method_str = ts_config.get("method", "atr_based")
+        try:
+            method = TrailingMethod(method_str)
+        except ValueError:
+            logger.warning(f"Unknown trailing method: {method_str}, using atr_based")
+            method = TrailingMethod.ATR_BASED
+
+        return TrailingStopConfig(
+            enabled=True,
+            method=method,
+            trail_pips=ts_config.get("trail_pips", 30.0),
+            atr_multiplier=ts_config.get("atr_multiplier", 1.5),
+            trail_percent=ts_config.get("trail_percent", 0.005),
+            breakeven_trigger_pips=ts_config.get("breakeven_trigger_pips", 20.0),
+            breakeven_offset_pips=ts_config.get("breakeven_offset_pips", 5.0),
+            step_pips=ts_config.get("step_pips", 20.0),
+            activation_pips=ts_config.get("activation_pips", 10.0),
+            min_trail_distance=ts_config.get("min_trail_distance", 15.0),
+        )
+
+    except Exception as e:
+        logger.warning(f"Failed to load trailing stop config: {e}, using defaults")
+        return TrailingStopConfig()
