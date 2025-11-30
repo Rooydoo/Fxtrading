@@ -1,0 +1,73 @@
+# FX Trading System - Main Settings
+# mode: paper (デモ) / live (本番)
+
+system:
+  mode: paper  # paper / live
+  timezone: Asia/Tokyo
+  log_level: INFO
+
+# 取引設定
+trading:
+  timeframe: 15m  # 15分足
+  currency_pairs:
+    - EUR_USD
+    - USD_JPY
+
+  # レバレッジ設定
+  leverage:
+    default: 1.0
+    high_confidence: 1.5  # 確信度80%以上
+    confidence_threshold: 0.80
+
+  # 取引時間
+  trading_hours:
+    enabled: true
+    # 平日のみ取引（土日は自動停止）
+    weekdays_only: true
+
+# GMO Coin FX API
+api:
+  public_endpoint: https://forex-api.coin.z.com/public
+  private_endpoint: https://forex-api.coin.z.com/private
+  websocket_endpoint: wss://forex-api.coin.z.com/ws/public
+
+  # レート制限
+  rate_limits:
+    get_per_second: 6
+    post_per_second: 1
+
+  # タイムアウト設定
+  timeout_seconds: 30
+  retry_count: 3
+  retry_delay_seconds: 2
+
+# ペーパートレード設定
+paper_trading:
+  initial_balance: 1000000  # 100万円
+
+# データ保存
+storage:
+  database: sqlite  # sqlite / postgresql
+  db_path: data/trades.db
+  models_dir: models/
+  logs_dir: logs/
+
+# Telegram通知
+telegram:
+  enabled: true
+  # bot_token と chat_id は環境変数から取得
+  # TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+
+  # 通知設定
+  notifications:
+    entry: true
+    exit: true
+    daily_report: true
+    weekly_report: true
+    monthly_report: true
+    emergency: true
+
+  # 定期レポート時刻
+  report_times:
+    daily: "23:55"
+    weekly: "Sunday 23:00"

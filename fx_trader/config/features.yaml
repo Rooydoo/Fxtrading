@@ -1,0 +1,140 @@
+# FX Trading System - Feature Configuration
+# 特徴量のON/OFF管理
+
+# 価格系特徴量
+price_features:
+  enabled: true
+  features:
+    ohlc: true           # Open, High, Low, Close
+    returns: true        # リターン (1, 2, 3, 5, 10期間)
+    log_returns: true    # 対数リターン
+    volatility: true     # ボラティリティ
+    range: true          # High-Low レンジ
+    body_ratio: true     # ローソク足の実体比率
+
+# テクニカル指標
+technical_indicators:
+  enabled: true
+
+  # RSI (相対力指数)
+  rsi:
+    enabled: true
+    periods: [7, 14, 21]
+
+  # MACD
+  macd:
+    enabled: true
+    fast_period: 12
+    slow_period: 26
+    signal_period: 9
+
+  # ボリンジャーバンド
+  bollinger_bands:
+    enabled: true
+    period: 20
+    std_dev: 2.0
+    features:
+      - bb_upper
+      - bb_lower
+      - bb_middle
+      - bb_width
+      - bb_position  # 価格のBB内位置 (0-1)
+
+  # ATR (真の平均レンジ)
+  atr:
+    enabled: true
+    periods: [7, 14, 21]
+
+  # ADX (平均方向性指数)
+  adx:
+    enabled: true
+    period: 14
+
+  # 移動平均
+  moving_averages:
+    enabled: true
+    sma_periods: [5, 10, 20, 50, 100]
+    ema_periods: [5, 10, 20, 50]
+    features:
+      - ma_cross  # MAクロスオーバーシグナル
+      - price_ma_distance  # 価格とMAの距離
+
+  # ストキャスティクス
+  stochastic:
+    enabled: true
+    k_period: 14
+    d_period: 3
+
+  # CCI (商品チャネル指数)
+  cci:
+    enabled: false
+    period: 20
+
+  # Williams %R
+  williams_r:
+    enabled: false
+    period: 14
+
+# 時間特徴量
+time_features:
+  enabled: true
+  features:
+    hour: true           # 時間 (0-23)
+    day_of_week: true    # 曜日 (0-6)
+    day_of_month: true   # 日 (1-31)
+    month: true          # 月 (1-12)
+    is_month_end: true   # 月末フラグ
+
+  # セッション分類
+  sessions:
+    enabled: true
+    # 東京: 00:00-09:00 UTC
+    # ロンドン: 08:00-17:00 UTC
+    # ニューヨーク: 13:00-22:00 UTC
+    tokyo: [0, 9]
+    london: [8, 17]
+    new_york: [13, 22]
+
+# 上位時間軸特徴量
+higher_timeframe:
+  enabled: true
+  timeframe: 1h  # 1時間足
+
+  features:
+    trend: true          # 1時間足トレンド方向
+    volatility: true     # 1時間足ボラティリティ
+    rsi: true            # 1時間足RSI
+    ma_direction: true   # MA方向
+
+# ラグ特徴量
+lag_features:
+  enabled: true
+  lags: [1, 2, 3, 4, 5, 10]  # 過去N期間
+
+  # ラグを適用する特徴量
+  apply_to:
+    - returns
+    - rsi_14
+    - macd_histogram
+    - bb_position
+    - atr_14
+
+# 特徴量エンジニアリング
+feature_engineering:
+  # 特徴量のスケーリング
+  scaling:
+    method: standard  # standard / minmax / robust
+    exclude:
+      - hour
+      - day_of_week
+      - session_*
+
+  # 欠損値処理
+  missing_values:
+    method: forward_fill  # forward_fill / drop / mean
+
+  # 外れ値処理
+  outliers:
+    enabled: true
+    method: clip  # clip / remove
+    threshold: 3.0  # 標準偏差の倍数

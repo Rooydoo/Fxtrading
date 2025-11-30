@@ -1,0 +1,35 @@
+[Unit]
+Description=FX Machine Learning Trading System
+After=network.target
+
+[Service]
+Type=simple
+User=fx_trader
+Group=fx_trader
+WorkingDirectory=/opt/fx_trader
+
+# 環境変数ファイル
+EnvironmentFile=/opt/fx_trader/.env
+
+# Python実行
+ExecStart=/opt/fx_trader/venv/bin/python main.py --config config/settings.yaml --model models/current_model.pkl
+
+# 再起動設定
+Restart=always
+RestartSec=30
+
+# リソース制限
+MemoryLimit=1G
+CPUQuota=50%
+
+# ログ設定
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=fx_trader
+
+# セキュリティ
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
